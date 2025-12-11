@@ -50,25 +50,41 @@ def rects_intersect(r1, r2):
 def overlay_image(background, overlay, x, y):
     """
     Draw `overlay` (BGRA or BGR) onto `background` (BGR)
-    at position (x, y). Handles transparency.
+    at position (x, y). Handles transparency and clips if partially out of frame.
     """
+    bg_h, bg_w = background.shape[:2]
     h, w = overlay.shape[:2]
 
-    if x + w > background.shape[1] or y + h > background.shape[0]:
-        return  # image would go out of bounds
+    # Clip top/left if x or y is negative
+    x1 = max(x, 0)
+    y1 = max(y, 0)
+    x2 = min(x + w, bg_w)
+    y2 = min(y + h, bg_h)
 
-    if overlay.shape[2] == 4:  # PNG with alpha
-        b, g, r, a = cv2.split(overlay)
+    # Compute overlay region coordinates
+    overlay_x1 = x1 - x if x < 0 else 0
+    overlay_y1 = y1 - y if y < 0 else 0
+    overlay_x2 = overlay_x1 + (x2 - x1)
+    overlay_y2 = overlay_y1 + (y2 - y1)
+
+    if x1 >= x2 or y1 >= y2:
+        return  # completely out of bounds
+
+    overlay_crop = overlay[overlay_y1:overlay_y2, overlay_x1:overlay_x2]
+
+    if overlay_crop.shape[2] == 4:  # PNG with alpha
+        b, g, r, a = cv2.split(overlay_crop)
         alpha = a.astype(float) / 255.0
-    else:
-        b, g, r = cv2.split(overlay)
-        alpha = np.ones((h, w), dtype=float)
+    else:  # no alpha
+        b, g, r = cv2.split(overlay_crop)
+        alpha = np.ones((overlay_crop.shape[0], overlay_crop.shape[1]), dtype=float)
 
     for c, channel in enumerate([b, g, r]):
-        background[y:y+h, x:x+w, c] = (
-            background[y:y+h, x:x+w, c] * (1 - alpha) +
+        background[y1:y2, x1:x2, c] = (
+            background[y1:y2, x1:x2, c] * (1 - alpha) +
             channel * alpha
         )
+
 
 # ---------- Initialize ----------
 cap = cv2.VideoCapture(CAM_INDEX)
@@ -201,30 +217,30 @@ while True:
         spawn_corner_demon(now)
         last_corner_spawn = now
 
-    # Update corner demons: draw, check motion contact and lifetime
+    # Update corner demons: overlay images, check motion contact and lifetime
     for d in corner_demons:
         if not d['alive']:
-            continue
-        x, y, w, h = d['rect']
-        
-        # overlay the corner demon image
-        overlay_image(frame, corner_demon_img, x, y)
-        
-        # check motion overlap
-        touched = False
-        for m in motion_regions:
-            if rects_intersect(d['rect'], m):
-                touched = True
-                break
-        if touched:
+         continue
+    x, y, w, h = d['rect']
+
+    # overlay the corner demon image
+    overlay_image(frame, corner_demon_img, x, y)
+
+    # check motion overlap
+    touched = False
+    for m in motion_regions:
+        if rects_intersect(d['rect'], m):
+            touched = True
+            break
+    if touched:
+        d['alive'] = False
+        score += 1
+        # particle effect
+        cx, cy = x + w // 2, y + h // 2
+        cv2.circle(frame, (cx, cy), int(w * 0.8), (0, 255, 0), thickness=-1)
+    else:
+        if now - d['spawned'] > CORNER_DEMON_LIFETIME:
             d['alive'] = False
-            score += 1
-            # small particle effect: draw a quick filled circle
-            cv2.circle(frame, (cx, cy), int(w * 0.8), (0, 255, 0), thickness=-1)
-        else:
-            # check lifetime expiry
-            if now - d['spawned'] > CORNER_DEMON_LIFETIME:
-                d['alive'] = False
 
     # Spawn falling demon periodically if none active
     if (falling is None or not falling['active']) and (now - last_falling_spawn > FALLING_SPAWN_INTERVAL):
@@ -238,17 +254,17 @@ while True:
         fy = int(falling['y'])
         fw = int(falling['w'])
         fh = int(falling['h'])
-        
-        # overlay the falling demon image
-        overlay_image(frame, falling_demon_img, fx, fy)
 
-        # check face collision -> GAME OVER
-        if fy > 0 and face_rect is not None and rects_intersect(face_rect, (fx, fy, fw, fh)):
+    # overlay the falling demon image
+    overlay_image(frame, falling_demon_img, fx, fy)
+
+    # check face collision -> GAME OVER
+    if fy > 0 and face_rect is not None and rects_intersect(face_rect, (fx, fy, fw, fh)):
             game_over = True
             falling['active'] = False
 
         # check bottom exit -> +5 points
-        if fy > FRAME_HEIGHT:
+    if fy > FRAME_HEIGHT:
             falling['active'] = False
             score += 5
 
