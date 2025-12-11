@@ -11,6 +11,7 @@ Controls:
 """
 
 import cv2
+import numpy as np
 import time
 import random
 
@@ -109,6 +110,8 @@ last_falling_spawn = 0.0
 prev_time = time.time()
 
 # Corners helper
+corner_list = ['tl', 'tr', 'bl', 'br']
+
 def corner_rect(corner, w, h):
     if corner == 'tl':
         x, y = 10, 10
@@ -120,6 +123,13 @@ def corner_rect(corner, w, h):
         x, y = FRAME_WIDTH - w - 10, FRAME_HEIGHT - h - 10
     return (x, y, w, h)
 
+def spawn_corner_demon(now):
+    available = [c for c in corner_list if all(d['corner'] != c or not d['alive'] for d in corner_demons)]
+    if not available:
+        return
+    c = random.choice(available)
+    r = corner_rect(c, CORNER_DEMON_W, CORNER_DEMON_H)
+    corner_demons.append({'corner': c, 'rect': r, 'spawned': now, 'alive': True})
 # Spawn one corner demon in a random available corner
 def spawn_corner_demon(now):
     available = [c for c in corner_list if all(d['corner'] != c or not d['alive'] for d in corner_demons)]
