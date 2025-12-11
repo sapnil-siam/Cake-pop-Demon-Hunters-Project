@@ -109,8 +109,7 @@ last_falling_spawn = 0.0
 prev_time = time.time()
 
 # Corners helper
-def corner_rect(corner, size):
-    w, h = size, size
+def corner_rect(corner, w, h):
     if corner == 'tl':
         x, y = 10, 10
     elif corner == 'tr':
@@ -121,15 +120,13 @@ def corner_rect(corner, size):
         x, y = FRAME_WIDTH - w - 10, FRAME_HEIGHT - h - 10
     return (x, y, w, h)
 
-corner_list = ['tl', 'tr', 'bl', 'br']
-
 # Spawn one corner demon in a random available corner
 def spawn_corner_demon(now):
     available = [c for c in corner_list if all(d['corner'] != c or not d['alive'] for d in corner_demons)]
     if not available:
         return
     c = random.choice(available)
-    r = corner_rect(c, CORNER_DEMON_SIZE)
+    r = corner_rect(c, CORNER_DEMON_W, CORNER_DEMON_H)
     corner_demons.append({'corner': c, 'rect': r, 'spawned': now, 'alive': True})
 
 def spawn_falling(now):
