@@ -84,14 +84,14 @@ score = 0
 game_over = False
 
 # ---------- Load Demon Images ----------
-corner_demon_img = cv2.imread("corner_demon.jpg", cv2.IMREAD_UNCHANGED)
-falling_demon_img = cv2.imread("falling_demon.png", cv2.IMREAD_UNCHANGED)
+corner_demon_img = cv2.imread(r"C:\Users\sapni\OneDrive\Desktop\corner_demon.jpg", cv2.IMREAD_UNCHANGED)
+falling_demon_img = cv2.imread(r"C:\Users\sapni\OneDrive\Desktop\falling_demon.png", cv2.IMREAD_UNCHANGED)
 
 if corner_demon_img is None:
-    raise RuntimeError("Could not load corner_demon.jpg")
+    raise RuntimeError("Could not load corner_demon.jpg — check the file name and location.")
 
 if falling_demon_img is None:
-    raise RuntimeError("Could not load falling_demon.png")
+    raise RuntimeError("Could not load falling_demon.png — check the file name and location.")
 
 # Resize to match your config values
 corner_demon_img = cv2.resize(corner_demon_img, (CORNER_DEMON_W, CORNER_DEMON_H))
@@ -196,11 +196,10 @@ while True:
         if not d['alive']:
             continue
         x, y, w, h = d['rect']
-        # draw demon (filled circle inside rectangle)
-        cx, cy = x + w // 2, y + h // 2
-        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
-        cv2.putText(frame, "DEMON", (x, y + h + 15), FONT, 0.5, (0, 0, 255), 1)
-
+        
+        # overlay the corner demon image
+        overlay_image(frame, corner_demon_img, x, y)
+        
         # check motion overlap
         touched = False
         for m in motion_regions:
@@ -229,9 +228,9 @@ while True:
         fy = int(falling['y'])
         fw = int(falling['w'])
         fh = int(falling['h'])
-        # draw falling demon as red rectangle
-        cv2.rectangle(frame, (fx, fy), (fx + fw, fy + fh), (0, 0, 180), -1)
-        cv2.putText(frame, "DEMON", (fx + 5, fy + 20), FONT, 0.6, (255, 255, 255), 2)
+        
+        # overlay the falling demon image
+        overlay_image(frame, falling_demon_img, fx, fy)
 
         # check face collision -> GAME OVER
         if fy > 0 and face_rect is not None and rects_intersect(face_rect, (fx, fy, fw, fh)):
